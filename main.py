@@ -3,11 +3,11 @@
 import os
 import logging
 from dotenv import load_dotenv
-from audio_utils import record_audio, play_audio
-from transcription import transcribe_audio
-from llm_interface import generate_response
-from tts_utils import text_to_speech
-from conversation_manager import ConversationManager
+from src.audio_utils import record_audio, play_audio
+from src.transcription import transcribe_audio
+from src.llm_interface import generate_response
+from src.tts_utils import text_to_speech
+from src.conversation_manager import ConversationManager
 
 load_dotenv()
 
