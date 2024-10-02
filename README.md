@@ -9,11 +9,11 @@ This project is a conversational AI system that uses:
 ## Project Structure
 
 - `main.py`: Main script to run the conversation.
-- `audio_utils.py`: Handles audio recording and playback.
-- `transcription.py`: Transcribes audio using Whisper.
-- `llm_interface.py`: Interfaces with the LLM via Ollama SDK.
-- `tts_utils.py`: Converts text to speech using Coqui TTS.
-- `conversation_manager.py`: Manages the conversation history.
+- `src.audio_utils.py`: Handles audio recording and playback.
+- `src.transcription.py`: Transcribes audio using Whisper.
+- `src.llm_interface.py`: Interfaces with the LLM via Ollama SDK.
+- `src.tts_utils.py`: Converts text to speech using Coqui TTS.
+- `src.conversation_manager.py`: Manages the conversation history.
 
 ## Requirements
 
