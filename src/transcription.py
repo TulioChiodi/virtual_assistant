@@ -57,5 +57,6 @@ def test_transcribe_audio():
         # Clean up the test file
         os.remove(test_filename)
 
+
 if __name__ == "__main__":
     test_transcribe_audio()
