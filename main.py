@@ -23,7 +23,7 @@ def main():
     transcription, response generation, and text-to-speech conversion.
     """
     # Initialize Conversation Manager with system message
-    system_message = os.getenv('SYSTEM_MESSAGE')
+    system_message = os.getenv('ASSISTANT_SYSTEM_MESSAGE')
     conversation = ConversationManager(system_message)
     logger.info("Conversation started")
 

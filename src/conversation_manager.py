@@ -1,8 +1,58 @@
 import logging
+import os
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Table, inspect
+from sqlalchemy.orm import declarative_base, sessionmaker
+from datetime import datetime
+from dateutil.tz import UTC
+
+# Load environment variables
+load_dotenv()
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Database connection parameters
+DB_NAME = os.getenv('DB_NAME')
+DB_USER = os.getenv('DB_USER')
+DB_PASSWORD = os.getenv('DB_PASSWORD')
+DB_HOST = os.getenv('DB_HOST')
+DB_PORT = os.getenv('DB_PORT')
+CONVERSATION_TABLE = os.getenv('CONVERSATION_TABLE')
+
+# Create the database URL
+DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+
+# Create the SQLAlchemy engine
+engine = create_engine(DATABASE_URL)
+
+# Create a base class for declarative models
+Base = declarative_base()
+
+
+# Define the ConversationHistory model dynamically
+def create_conversation_model(table_name):
+    if table_name not in Base.metadata.tables:
+        return Table(table_name, Base.metadata,
+                     Column('id', Integer, primary_key=True),
+                     Column('message', String, nullable=False),
+                     Column('timestamp', DateTime, default=lambda: datetime.now(UTC))
+                     )
+    else:
+        return Base.metadata.tables[table_name]
+
+
+# Create a session factory
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def create_table_if_not_exists(table_name):
+    """Create the conversation table if it doesn't exist."""
+    inspector = inspect(engine)
+    if not inspector.has_table(table_name):
+        create_conversation_model(table_name).create(engine)
+        logger.info(f"Created conversation table: {table_name}")
 
 
 class ConversationManager:
@@ -18,8 +68,24 @@ class ConversationManager:
             system_message (str): The initial system message to set the context of the conversation.
         """
         self.system_message = f"System: {system_message}"
-        self.conversation_history = [self.system_message]
-        logger.info("ConversationManager initialized with system message")
+        self.table_name = CONVERSATION_TABLE
+        create_table_if_not_exists(self.table_name)
+        self.session = SessionLocal()
+        self.ConversationHistory = create_conversation_model(self.table_name)
+        self._initialize_conversation()
+        logger.info(f"ConversationManager initialized with system message and database connection. Table: {self.table_name}")
+
+    def _initialize_conversation(self):
+        """Initialize the conversation with the system message."""
+        if self.session.query(self.ConversationHistory).count() == 0:
+            self.add_message(self.system_message)
+
+    def add_message(self, message):
+        """Add a single message to the conversation history."""
+        new_message = self.ConversationHistory.insert().values(message=message)
+        self.session.execute(new_message)
+        self.session.commit()
+        logger.info("Message added to conversation history")
 
     def update_history(self, user_input, ai_response):
         """
@@ -29,8 +95,8 @@ class ConversationManager:
             user_input (str): The user's input message.
             ai_response (str): The AI's response message.
         """
-        self.conversation_history.append(f"Human: {user_input}")
-        self.conversation_history.append(f"AI: {ai_response}")
+        self.add_message(f"Human: {user_input}")
+        self.add_message(f"AI: {ai_response}")
         logger.info("Conversation history updated")
 
     def get_history(self):
@@ -40,26 +106,10 @@ class ConversationManager:
         Returns:
             list: The list of conversation messages.
         """
-        return self.conversation_history
+        return [msg.message for msg in self.session.query(self.ConversationHistory).order_by(self.ConversationHistory.c.timestamp).all()]
 
-
-def test_conversation_manager():
-    """
-    Test function for ConversationManager.
-    """
-    system_message = "You are a helpful assistant."
-    manager = ConversationManager(system_message)
-
-    assert manager.get_history() == ["System: You are a helpful assistant."], "Initial history is incorrect"
-
-    manager.update_history("Hello", "Hi there! How can I assist you today?")
-    history = manager.get_history()
-    assert len(history) == 3, "History length is incorrect after update"
-    assert history[-2] == "Human: Hello", "User input not correctly added to history"
-    assert history[-1] == "AI: Hi there! How can I assist you today?", "AI response not correctly added to history"
-
-    logger.info("ConversationManager tests passed successfully")
-
-
-if __name__ == "__main__":
-    test_conversation_manager()
+    def close(self):
+        """Close the database session."""
+        if hasattr(self, 'session'):
+            self.session.close()
+            logger.info("ConversationManager session closed")
